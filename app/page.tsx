@@ -1,65 +1,239 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+
+type PromptApiResponse =
+  | { ok: true; output: string }
+  | { ok: false; error: string };
+
+type Role = "user" | "ai";
+
+type ChatMessage = {
+  id: string;
+  role: Role;
+  content: string;
+};
+
+type Theme = "light" | "dark";
+
+function TypingDots() {
+  return (
+    <div className="flex items-center gap-1" aria-label="AI is typing">
+      <span className="inline-block h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:0ms]" />
+      <span className="inline-block h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:150ms]" />
+      <span className="inline-block h-2 w-2 rounded-full bg-gray-400 dark:bg-gray-500 animate-bounce [animation-delay:300ms]" />
+    </div>
+  );
+}
+
+function readPreferredTheme(): Theme {
+  const stored = window.localStorage.getItem("theme");
+  if (stored === "light" || stored === "dark") return stored;
+
+  const prefersDark =
+    window.matchMedia &&
+    window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+  return prefersDark ? "dark" : "light";
+}
 
 export default function Home() {
+  const [prompt, setPrompt] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Important: stable default for SSR, then update after mount
+  const [theme, setTheme] = useState<Theme>("light");
+  const [mounted, setMounted] = useState(false);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+    const initial = readPreferredTheme();
+    setTheme(initial);
+  }, []);
+
+  // Apply theme to <html> and persist it (after mount)
+  useEffect(() => {
+    if (!mounted) return;
+
+    const root = document.documentElement;
+    root.classList.toggle("dark", theme === "dark");
+    window.localStorage.setItem("theme", theme);
+  }, [theme, mounted]);
+
+  // Auto-scroll to the bottom when new messages arrive or loading changes
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const canSubmit = useMemo(() => !loading, [loading]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+
+    const trimmed = prompt.trim();
+    if (!trimmed) {
+      setError("Please enter a prompt.");
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: trimmed,
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setPrompt(""); // clear input immediately
+
+    try {
+      const res = await fetch("/api/prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: trimmed }),
+      });
+
+      const data = (await res.json()) as PromptApiResponse;
+
+      if (!res.ok || !data.ok) {
+        const errMsg = data.ok ? "Request failed." : data.error;
+        setError(errMsg);
+        setMessages((prev) => [
+          ...prev,
+          { id: crypto.randomUUID(), role: "ai", content: `Error: ${errMsg}` },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: crypto.randomUUID(),
+            role: "ai",
+            content: data.output || "(No output)",
+          },
+        ]);
+      }
+    } catch {
+      const errMsg = "Network error. Please try again.";
+      setError(errMsg);
+      setMessages((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "ai", content: `Error: ${errMsg}` },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function toggleTheme() {
+    // safe even before mounted, but mounted keeps UI consistent
+    setTheme((t) => (t === "dark" ? "light" : "dark"));
+  }
+
+  function clearChat() {
+    setMessages([]);
+    setError(null);
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+    <main className="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+      <div className="mx-auto max-w-3xl p-6">
+        <header className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-semibold">AI Prompt UI</h1>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              Type a prompt and get an AI response.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearChat}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
             >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
+              Clear
+            </button>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
+              aria-label="Toggle dark/light mode"
+              title="Toggle theme"
             >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+              {/* Prevent hydration mismatch by rendering stable label until mounted */}
+              {mounted ? (theme === "dark" ? "Light" : "Dark") : "Theme"}
+            </button>
+          </div>
+        </header>
+
+        <form onSubmit={onSubmit} className="mt-6 flex gap-2">
+          <input
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder="Ask something..."
+            className="flex-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100 dark:placeholder:text-gray-500 dark:focus:ring-gray-700"
+            aria-label="Prompt"
+          />
+          <button
+            type="submit"
+            disabled={!canSubmit}
+            className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm hover:bg-gray-50 disabled:opacity-60 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            {loading ? "Sending..." : "Submit"}
+          </button>
+        </form>
+
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+            {error}
+          </div>
+        )}
+
+        <section className="mt-6 space-y-4">
+          {messages.map((m) => {
+            const isUser = m.role === "user";
+            return (
+              <div
+                key={m.id}
+                className={[
+                  "w-fit max-w-[85%] rounded-2xl px-4 py-3 text-sm",
+                  isUser
+                    ? "ml-auto bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                    : "mr-auto border border-gray-200 bg-white text-gray-900 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100",
+                ].join(" ")}
+              >
+                <div
+                  className={[
+                    "mb-1 text-xs",
+                    isUser ? "opacity-70" : "text-gray-500 dark:text-gray-400",
+                  ].join(" ")}
+                >
+                  {isUser ? "You" : "AI"}
+                </div>
+                {m.content}
+              </div>
+            );
+          })}
+
+          {loading && (
+            <div className="mr-auto w-fit max-w-[85%] rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm dark:border-gray-800 dark:bg-gray-900">
+              <div className="mb-1 text-xs text-gray-500 dark:text-gray-400">
+                AI
+              </div>
+              <TypingDots />
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </section>
+      </div>
+    </main>
   );
 }

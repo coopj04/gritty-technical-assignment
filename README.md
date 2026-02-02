@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gritty AI Chat (Next.js + TypeScript)
+
+A simple chat-style web app that lets a user send prompts and receive AI responses.
+
+## Loom Demo
+- **Demo video:** _ADD YOUR LOOM LINK HERE_
+
+In the demo, I walk through the UI/UX, API route, how prompts are handled, tradeoffs, and what I’d improve with more time.
+
+---
+
+## Features Implemented
+
+### Core Requirements
+- **Prompt UI**
+  - Text input for user prompts
+  - Submit button
+  - Response display area
+  - Clear visual distinction between **User** and **AI** messages
+- **Form behavior**
+  - Prevents empty submissions
+  - Shows a loading state while waiting for the AI response
+  - Clears the input after submit so the user can immediately type a new prompt
+- **TypeScript**
+  - Typed UI state and API request/response payloads
+- **Backend API route**
+  - Next.js API route (`/api/prompt`) receives the prompt and calls the AI provider (OpenAI)
+  - API key stored in environment variables
+
+### Bonus Features Added
+- **Full chat history (client-side)**
+  - Messages are stored in an array and rendered in order (multi-turn UI history)
+- **Dark / Light mode toggle**
+  - Toggle button switches themes
+  - Theme is persisted in `localStorage`
+  - Uses a class-based `dark` mode approach
+- **Animated typing indicator**
+  - While awaiting the AI response, an animated “typing” bubble is shown
+
+
+---
+
+## Tech Stack
+- **Next.js** (App Router)
+- **React** (functional components + hooks)
+- **TypeScript**
+- **Tailwind CSS** (styling + dark mode utilities)
+- **OpenAI SDK** (server-side AI requests)
+
+---
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+- **Node.js >= 20.9.0**
+- npm / pnpm / yarn
 
+### 1) Install dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+npm install
