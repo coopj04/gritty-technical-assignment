@@ -3,7 +3,7 @@
 A simple chat-style web app that lets a user send prompts and receive AI responses.
 
 ## Loom Demo
-- **Demo video:** _ADD YOUR LOOM LINK HERE_
+- **Demo video:** [Video Link](https://www.loom.com/share/3155be97cc9446ceab743134452622e2)
 
 In the demo, I walk through the UI/UX, API route, how prompts are handled, tradeoffs, and what I’d improve with more time.
 
